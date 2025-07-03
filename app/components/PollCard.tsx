@@ -4,57 +4,40 @@
 
 import { useOptimistic } from 'react';
 import { submitVote } from '@/app/actions';
+import { PollWithUserVote } from '@/lib/types'; // Assuming types are in lib/types.ts
 
-// Define the TypeScript type for the data this component expects to receive as a prop.
-// This ensures type safety and autocompletion in your editor.
-type PollWithOptionsAndVotes = {
-  id: string;
-  question: string;
-  author: { name: string | null };
-  options: {
-    id: string;
-    text: string;
-    _count: { votes: number };
-  }[];
-  userVote: string | null; // The ID of the option the current user voted for, or null.
+// 1. UPDATE: Define the type for the component's props, now including 'isLoggedIn'.
+type PollCardProps = {
+  pollData: PollWithUserVote;
+  isLoggedIn: boolean;
 };
 
-export default function PollCard({ pollData }: { pollData: PollWithOptionsAndVotes }) {
-  // The useOptimistic hook takes the initial "real" state and an update function.
+// 2. UPDATE: The component now accepts 'isLoggedIn' from its props.
+export default function PollCard({ pollData, isLoggedIn }: PollCardProps) {
   const [optimisticPoll, setOptimisticPoll] = useOptimistic(
     pollData,
-    // This function describes how to create the "optimistic" state.
-    // It receives the current state and the new data (the ID of the option being voted for).
     (currentState, votedOptionId: string) => {
-      // Find the option the user just clicked on.
       const newOption = currentState.options.find(o => o.id === votedOptionId);
       if (newOption) {
-        // Increment its vote count immediately.
         newOption._count.votes++;
       }
-      
-      // Return a new state object reflecting this optimistic update.
       return {
         ...currentState,
-        userVote: votedOptionId, // Mark that the user has now voted for this option.
+        userVote: votedOptionId,
       };
     }
   );
 
   const totalVotes = optimisticPoll.options.reduce((sum, opt) => sum + opt._count.votes, 0);
 
-  // This function is called when a vote form is submitted.
   const handleVote = async (optionId: string) => {
-    // 1. Instantly update the UI by calling the optimistic state updater.
     setOptimisticPoll(optionId);
-    
-    // 2. Then, call the actual Server Action to update the database.
-    // If this action throws an error, React will automatically revert the optimistic update.
     try {
       await submitVote(optionId);
     } catch (error) {
       console.error("Voting failed:", error);
-      // Here you could show a toast notification to the user.
+      // In a real app, you could add a toast notification here to inform the user
+      // that their vote failed (e.g., if they lost internet connection).
     }
   };
 
@@ -69,16 +52,18 @@ export default function PollCard({ pollData }: { pollData: PollWithOptionsAndVot
           const hasVotedForThis = optimisticPoll.userVote === option.id;
 
           return (
-            // Each option is its own form for progressive enhancement.
             <form action={() => handleVote(option.id)} key={option.id}>
               <button
                 type="submit"
-                disabled={!!optimisticPoll.userVote} // Disable all buttons if user has voted.
-                className={`w-full p-3 border rounded-md text-left relative overflow-hidden transition-all disabled:cursor-not-allowed ${
+                // 3. UPDATE: The disabled logic now checks for two conditions.
+                // It's disabled if:
+                //   a) The user has already voted in this poll (optimistically or for real).
+                //   b) The user is not logged in.
+                disabled={!!optimisticPoll.userVote || !isLoggedIn}
+                className={`w-full p-3 border rounded-md text-left relative overflow-hidden transition-all disabled:cursor-not-allowed disabled:opacity-70 ${
                     hasVotedForThis ? 'border-blue-600 border-2 font-bold' : 'border-gray-300'
                 }`}
               >
-                {/* The background div acts as the progress bar. */}
                 <div
                   className="absolute top-0 left-0 h-full bg-blue-100 -z-10 transition-all duration-500"
                   style={{ width: `${percentage}%` }}
@@ -93,6 +78,14 @@ export default function PollCard({ pollData }: { pollData: PollWithOptionsAndVot
           );
         })}
       </div>
+      
+      {/* 4. UPDATE: Add a conditional message for logged-out users. */}
+      {!isLoggedIn && (
+        <div className="text-center mt-4 bg-gray-100 p-3 rounded-md">
+          <p className="text-sm text-gray-600">Please sign in to cast your vote.</p>
+        </div>
+      )}
+
       <p className="text-right text-sm text-gray-500 mt-2">Total Votes: {totalVotes}</p>
     </div>
   );

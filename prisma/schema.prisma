@@ -1,0 +1,121 @@
+// This is your Prisma schema file.
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Defines the data source connector and the database connection URL.
+// The URL is loaded from the .env file for security.
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+}
+
+// Defines how the Prisma Client is generated.
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ===================================================================
+// == Application-Specific Models
+// ===================================================================
+
+// Model for the main Poll entity
+model Poll {
+  id        String   @id @default(cuid())
+  question  String
+  createdAt DateTime @default(now())
+
+  // Relation to the User who created the poll
+  authorId  String
+  author    User     @relation("PollsByUser", fields: [authorId], references: [id])
+
+  // Relation to the Options belonging to this poll
+  options   Option[]
+}
+
+// Model for a single option within a Poll
+model Option {
+  id      String @id @default(cuid())
+  text    String
+
+  // Relation back to the Poll it belongs to
+  pollId  String
+  poll    Poll   @relation(fields: [pollId], references: [id], onDelete: Cascade)
+
+  // Relation to all the Votes cast for this option
+  votes   Vote[]
+}
+
+// Model representing a single Vote by a User for an Option
+model Vote {
+  id       String @id @default(cuid())
+  
+  // Relations to the Option and User involved in the vote
+  optionId String
+  userId   String
+  option   Option @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  user     User   @relation("VotesByUser", fields: [userId], references: [id])
+  
+  // This is a crucial constraint: it ensures that the combination of
+  // optionId and userId is unique. This means a user can only vote for
+  // a specific option once. Since a user can only vote for one option per poll,
+  // this effectively prevents a user from voting multiple times in the same poll.
+  @@unique([optionId, userId])
+}
+
+
+// ===================================================================
+// == NextAuth.js (Auth.js v5) Models
+// == These are required for the @auth/prisma-adapter to work.
+// ===================================================================
+
+// Model for a User
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  
+  // Relations to other models
+  accounts      Account[]
+  sessions      Session[]
+  polls         Poll[]    @relation("PollsByUser")
+  votes         Vote[]    @relation("VotesByUser")
+}
+
+// Model for linked OAuth accounts (e.g., Google, GitHub)
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String? @db.Text
+  access_token       String? @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String? @db.Text
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+// Model for user sessions
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Model for email verification tokens (used for "magic link" sign-in)
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}

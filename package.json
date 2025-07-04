@@ -7,17 +7,17 @@
     "build": "npx prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx --require dotenv/config prisma/seed.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.10.0",
     "@prisma/client": "^6.11.0",
     "bcrypt": "^6.0.0",
+    "dotenv": "^17.0.1",
     "next": "15.3.4",
     "next-auth": "^5.0.0-beta.29",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "tsx": "^4.20.3"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
@@ -30,6 +30,7 @@
     "eslint-config-next": "15.3.4",
     "prisma": "^6.11.0",
     "tailwindcss": "^4",
+    "tsx": "^4.20.3",
     "typescript": "^5"
   }
 }

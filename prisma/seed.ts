@@ -68,6 +68,7 @@ main()
     console.error("Seeding করার সময় একটি এরর ঘটেছে:", e);
     await prisma.$disconnect();
     process.exit(1);
+    //we should change it later
   })
   .finally(async () => {
     await prisma.$disconnect();
